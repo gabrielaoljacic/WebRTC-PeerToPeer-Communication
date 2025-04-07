@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
-export default function Join({ onCreateMeeting, onJoinMeeting }) {
+export default function Join({ handleCreateMeeting, handleJoinMeeting }) {
   const [username, setUsername] = useState('');
   const [roomName, setRoomName] = useState('');
 
   return (
     <div className="join-container">
       <div className="join-card">
-        <h2>Join Video Chat</h2>
+        <h2>Video Chat</h2>
         
         <div className="form-group">
           <label>Your Name</label>
@@ -31,7 +31,7 @@ export default function Join({ onCreateMeeting, onJoinMeeting }) {
               placeholder="Enter meeting ID"
             />
             <button 
-              onClick={() => onJoinMeeting(roomName, username)}
+              onClick={() => handleJoinMeeting(roomName, username)}
               disabled={!username || !roomName}
             >
               Join
@@ -39,9 +39,11 @@ export default function Join({ onCreateMeeting, onJoinMeeting }) {
           </div>
         </div>
 
+        <div className="divider">OR</div>
+
         <button
           className="create-btn"
-          onClick={() => onCreateMeeting(username)}
+          onClick={() => handleCreateMeeting(username)}
           disabled={!username}
         >
           Create New Meeting

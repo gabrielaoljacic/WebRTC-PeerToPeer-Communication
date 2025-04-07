@@ -1,44 +1,36 @@
-import { useState, useEffect } from 'react';
 import VideoTag from './VideoTag';
-import Controls from './Controls';
 
 export default function Meeting({
   meetingInfo,
-  localStream,
+  localVideoStream,
   remoteTracks,
   onlineUsers,
-  onLeave,
-  onToggleMic,
-  onToggleCamera,
-  onToggleScreenShare
+  handleMicBtn,
+  handleCameraBtn,
+  handleScreenBtn,
+  handleLeaveBtn
 }) {
-  const [gridCols, setGridCols] = useState(1);
-
-  useEffect(() => {
-    // Adjust grid columns based on participant count
-    const count = onlineUsers.length + 1; // +1 for local video
-    setGridCols(Math.min(Math.ceil(Math.sqrt(count)), 3));
-  }, [onlineUsers]);
-
   const renderRemoteVideos = () => {
-    return onlineUsers.map(user => {
-      if (user._id === meetingInfo.participantSessionId) return null;
-      
-      const userTracks = remoteTracks.filter(t => t.participantSessionId === user._id);
-      const videoTracks = userTracks.filter(t => t.type === 'video');
-      const audioTracks = userTracks.filter(t => t.type === 'audio');
+    const userStreamMap = {};
+    remoteTracks.forEach(track => {
+      if (!userStreamMap[track.participantSessionId]) {
+        userStreamMap[track.participantSessionId] = [];
+      }
+      userStreamMap[track.participantSessionId].push(track);
+    });
 
+    return onlineUsers.map(user => {
+      if (user._id === meetingInfo?.participantSessionId) return null;
+      
+      const tracks = userStreamMap[user._id] || [];
+      const videoTracks = tracks.filter(t => t.type === 'video');
+      
       return (
         <div key={user._id} className="participant-video">
           {videoTracks.map(track => {
             const stream = new MediaStream();
             stream.addTrack(track.track);
             return <VideoTag key={track.streamId} srcObject={stream} />;
-          })}
-          {audioTracks.map(track => {
-            const stream = new MediaStream();
-            stream.addTrack(track.track);
-            return <VideoTag key={track.streamId} srcObject={stream} style={{ display: 'none' }} />;
           })}
           <div className="participant-name">{user.name}</div>
         </div>
@@ -49,26 +41,34 @@ export default function Meeting({
   return (
     <div className="meeting-container">
       <div className="meeting-header">
-        <h3>Meeting ID: {meetingInfo.roomName}</h3>
+        <h3>Meeting ID: {meetingInfo?.roomName}</h3>
       </div>
 
-      <div className={`video-grid cols-${gridCols}`}>
+      <div className="video-grid">
         {renderRemoteVideos()}
         
-        {localStream && (
+        {localVideoStream && (
           <div className="local-video">
-            <VideoTag srcObject={localStream} muted className="local-video-tag" />
-            <div className="participant-name">You ({meetingInfo.name})</div>
+            <VideoTag srcObject={localVideoStream} muted />
+            <div className="participant-name">You ({meetingInfo?.name})</div>
           </div>
         )}
       </div>
 
-      <Controls
-        onLeave={onLeave}
-        onToggleMic={onToggleMic}
-        onToggleCamera={onToggleCamera}
-        onToggleScreenShare={onToggleScreenShare}
-      />
+      <div className="controls-container">
+        <button onClick={handleMicBtn} className="control-btn">
+          {localVideoStream?.getAudioTracks()[0]?.enabled ? 'Mute' : 'Unmute'}
+        </button>
+        <button onClick={handleCameraBtn} className="control-btn">
+          {localVideoStream?.getVideoTracks()[0]?.enabled ? 'Stop Video' : 'Start Video'}
+        </button>
+        <button onClick={handleScreenBtn} className="control-btn">
+          Share Screen
+        </button>
+        <button onClick={handleLeaveBtn} className="control-btn leave">
+          Leave
+        </button>
+      </div>
     </div>
   );
 }
