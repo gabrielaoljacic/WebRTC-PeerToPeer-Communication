@@ -19,7 +19,7 @@ WebRTC-based video chat application using Python for our Capstone Project in COM
 put instructions to run here...
 ```
 
-## TODO
+## TO-DO
 
 - [x] Improve video application UX/UI
 - [x] Setup video functions
