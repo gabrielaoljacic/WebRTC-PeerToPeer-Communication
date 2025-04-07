@@ -5,104 +5,106 @@ import Meeting from './components/Meeting';
 import MeetingEnded from './components/MeetingEnded';
 import './styles/meeting.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_LOCATION = process.env.REACT_APP_API_URL;
 
 function App() {
-  const [meetingState, setMeetingState] = useState('join'); // join, meeting, ended
-  const [meetingInfo, setMeetingInfo] = useState(null);
-  const [localStream, setLocalStream] = useState(null);
-  const [remoteTracks, setRemoteTracks] = useState([]);
+  const [meetingJoined, setMeetingJoined] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [remoteTracks, setRemoteTracks] = useState([]);
+  const [username, setUsername] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [localVideoStream, setLocalVideoStream] = useState(null);
+  const [meetingInfo, setMeetingInfo] = useState(null);
+  const [meetingEnded, setMeetingEnded] = useState(false);
 
   // Initialize Metered Meeting
   useEffect(() => {
-    window.meteredMeeting = new window.Metered.Meeting();
-    setupEventListeners();
-    return () => cleanupEventListeners();
-  }, []);
+    const meteredMeeting = new window.Metered.Meeting();
+    window.meteredMeeting = meteredMeeting;
 
-  const setupEventListeners = () => {
-    window.meteredMeeting.on('remoteTrackStarted', (track) => {
-      setRemoteTracks(prev => [...prev, track]);
-    });
+    const handleRemoteTrackStarted = (trackItem) => {
+      setRemoteTracks(prev => [...prev, trackItem]);
+    };
 
-    window.meteredMeeting.on('remoteTrackStopped', (track) => {
-      setRemoteTracks(prev => prev.filter(t => t.streamId !== track.streamId));
-    });
+    const handleRemoteTrackStopped = (trackItem) => {
+      setRemoteTracks(prev => prev.filter(t => t.streamId !== trackItem.streamId));
+    };
 
-    window.meteredMeeting.on('onlineParticipants', (participants) => {
+    const handleOnlineParticipants = (participants) => {
       setOnlineUsers(participants);
-    });
+    };
 
-    window.meteredMeeting.on('localTrackUpdated', (trackItem) => {
+    const handleLocalTrackUpdated = (trackItem) => {
       const stream = new MediaStream([trackItem.track]);
-      setLocalStream(stream);
-    });
-  };
+      setLocalVideoStream(stream);
+    };
 
-  const cleanupEventListeners = () => {
-    window.meteredMeeting.removeAllListeners();
-  };
+    meteredMeeting.on("remoteTrackStarted", handleRemoteTrackStarted);
+    meteredMeeting.on("remoteTrackStopped", handleRemoteTrackStopped);
+    meteredMeeting.on("onlineParticipants", handleOnlineParticipants);
+    meteredMeeting.on("localTrackUpdated", handleLocalTrackUpdated);
 
-  const createMeeting = async (username) => {
+    return () => {
+      meteredMeeting.removeListener("remoteTrackStarted", handleRemoteTrackStarted);
+      meteredMeeting.removeListener("remoteTrackStopped", handleRemoteTrackStopped);
+      meteredMeeting.removeListener("onlineParticipants", handleOnlineParticipants);
+      meteredMeeting.removeListener("localTrackUpdated", handleLocalTrackUpdated);
+      if (localVideoStream) {
+        localVideoStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [localVideoStream]);
+
+  const handleCreateMeeting = async (username) => {
     try {
-      const roomRes = await axios.post(`${API_BASE_URL}/api/create/room`);
-      const domainRes = await axios.get(`${API_BASE_URL}/api/metered-domain`);
+      const { data } = await axios.post(`${API_LOCATION}/api/create/room`);
+      const { data: domainData } = await axios.get(`${API_LOCATION}/api/metered-domain`);
       
-      const joinRes = await window.meteredMeeting.join({
+      const joinResponse = await window.meteredMeeting.join({
         name: username,
-        roomURL: `${domainRes.data.METERED_DOMAIN}/${roomRes.data.roomName}`
+        roomURL: `${domainData.METERED_DOMAIN}/${data.roomName}`
       });
 
-      setMeetingInfo({
-        ...joinRes,
-        roomName: roomRes.data.roomName,
-        name: username
-      });
-      setMeetingState('meeting');
+      setUsername(username);
+      setRoomName(data.roomName);
+      setMeetingInfo(joinResponse);
+      setMeetingJoined(true);
     } catch (error) {
       console.error('Error creating meeting:', error);
       alert('Failed to create meeting');
     }
   };
 
-  const joinMeeting = async (roomName, username) => {
+  const handleJoinMeeting = async (roomName, username) => {
     try {
-      const validateRes = await axios.get(
-        `${API_BASE_URL}/api/validate-meeting?roomName=${roomName}`
-      );
-
-      if (!validateRes.data.roomFound) {
+      const { data } = await axios.get(`${API_LOCATION}/api/validate-meeting?roomName=${roomName}`);
+      
+      if (!data.roomFound) {
         alert('Invalid meeting ID');
         return;
       }
 
-      const domainRes = await axios.get(`${API_BASE_URL}/api/metered-domain`);
-      const joinRes = await window.meteredMeeting.join({
+      const { data: domainData } = await axios.get(`${API_LOCATION}/api/metered-domain`);
+      const joinResponse = await window.meteredMeeting.join({
         name: username,
-        roomURL: `${domainRes.data.METERED_DOMAIN}/${roomName}`
+        roomURL: `${domainData.METERED_DOMAIN}/${roomName}`
       });
 
-      setMeetingInfo({
-        ...joinRes,
-        roomName,
-        name: username
-      });
-      setMeetingState('meeting');
+      setUsername(username);
+      setRoomName(roomName);
+      setMeetingInfo(joinResponse);
+      setMeetingJoined(true);
     } catch (error) {
       console.error('Error joining meeting:', error);
       alert('Failed to join meeting');
     }
   };
 
-  const leaveMeeting = async () => {
+  const handleLeaveMeeting = async () => {
     try {
       await window.meteredMeeting.leaveMeeting();
-      setMeetingState('ended');
-      setLocalStream(null);
+      setMeetingEnded(true);
+      setLocalVideoStream(null);
       setRemoteTracks([]);
       setOnlineUsers([]);
     } catch (error) {
@@ -110,72 +112,69 @@ function App() {
     }
   };
 
-  const toggleMic = async () => {
+  const handleMicBtn = async () => {
     try {
-      if (isMuted) {
+      const audioOn = !localVideoStream?.getAudioTracks()[0]?.enabled;
+      if (audioOn) {
         await window.meteredMeeting.startAudio();
       } else {
         await window.meteredMeeting.stopAudio();
       }
-      setIsMuted(!isMuted);
     } catch (error) {
       console.error('Error toggling mic:', error);
     }
   };
 
-  const toggleCamera = async () => {
+  const handleCameraBtn = async () => {
     try {
-      if (isCameraOff) {
+      const videoOn = !localVideoStream?.getVideoTracks()[0]?.enabled;
+      if (videoOn) {
         await window.meteredMeeting.startVideo();
         const stream = await window.meteredMeeting.getLocalVideoStream();
-        setLocalStream(stream);
+        setLocalVideoStream(stream);
       } else {
         await window.meteredMeeting.stopVideo();
-        setLocalStream(null);
       }
-      setIsCameraOff(!isCameraOff);
     } catch (error) {
       console.error('Error toggling camera:', error);
     }
   };
 
-  const toggleScreenShare = async () => {
+  const handleScreenBtn = async () => {
     try {
-      if (isScreenSharing) {
-        await window.meteredMeeting.stopVideo();
-      } else {
-        await window.meteredMeeting.startScreenShare();
-      }
-      setIsScreenSharing(!isScreenSharing);
+      await window.meteredMeeting.startScreenShare();
     } catch (error) {
-      console.error('Error toggling screen share:', error);
+      console.error('Error starting screen share:', error);
     }
   };
 
   return (
-    <div className="app">
-      {meetingState === 'join' && (
-        <Join 
-          onCreateMeeting={createMeeting}
-          onJoinMeeting={joinMeeting}
+    <div className="App">
+      {meetingJoined ? (
+        meetingEnded ? (
+          <MeetingEnded onRejoin={() => {
+            setMeetingEnded(false);
+            setMeetingJoined(false);
+          }} />
+        ) : (
+          <Meeting
+            handleMicBtn={handleMicBtn}
+            handleCameraBtn={handleCameraBtn}
+            handleScreenBtn={handleScreenBtn}
+            handleLeaveBtn={handleLeaveMeeting}
+            localVideoStream={localVideoStream}
+            onlineUsers={onlineUsers}
+            remoteTracks={remoteTracks}
+            username={username}
+            roomName={roomName}
+            meetingInfo={meetingInfo}
+          />
+        )
+      ) : (
+        <Join
+          handleCreateMeeting={handleCreateMeeting}
+          handleJoinMeeting={handleJoinMeeting}
         />
-      )}
-
-      {meetingState === 'meeting' && meetingInfo && (
-        <Meeting
-          meetingInfo={meetingInfo}
-          localStream={localStream}
-          remoteTracks={remoteTracks}
-          onlineUsers={onlineUsers}
-          onLeave={leaveMeeting}
-          onToggleMic={toggleMic}
-          onToggleCamera={toggleCamera}
-          onToggleScreenShare={toggleScreenShare}
-        />
-      )}
-
-      {meetingState === 'ended' && (
-        <MeetingEnded onRejoin={() => setMeetingState('join')} />
       )}
     </div>
   );

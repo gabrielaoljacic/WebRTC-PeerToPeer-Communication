@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
-import classNames from 'classnames';
 
-export default function VideoTag({ srcObject, className, style, muted = false }) {
+export default function VideoTag({ srcObject, muted = false, ...props }) {
   const videoRef = useRef();
 
   useEffect(() => {
@@ -13,12 +12,11 @@ export default function VideoTag({ srcObject, className, style, muted = false })
   return (
     <video
       ref={videoRef}
-      className={classNames('video-tag', className)}
-      style={style}
       autoPlay
       playsInline
       muted={muted}
       onCanPlay={() => videoRef.current.play().catch(console.error)}
+      {...props}
     />
   );
 }
