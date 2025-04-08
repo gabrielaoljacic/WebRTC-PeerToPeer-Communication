@@ -12,11 +12,13 @@ WebRTC-based video chat application using Python for our Capstone Project in COM
 ## Requirements
 
 - Python
+- Node.js
 
 ## Setup
 
 ```bash
-put instructions to run here...
+git clone https://github.com/gabrielaoljacic/WebRTC-PeerToPeer-Communication.git
+cd WebRTC-PeerToPeer-Communication
 ```
 
 ## TO-DO
