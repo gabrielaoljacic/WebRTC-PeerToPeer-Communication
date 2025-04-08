@@ -1,22 +1,39 @@
-import { useEffect, useRef } from 'react';
+import classNames from "classnames";
+import { useEffect, useRef } from "react";
 
-export default function VideoTag({ srcObject, muted = false, ...props }) {
-  const videoRef = useRef();
+function VideoTag(props) {
+  const video = useRef();
+  const srcObject = props.srcObject;
+  const src = props.src;
+  const style = props.style;
+
+  const className = classNames(
+    "static shadow-lg bg-slate-900 max-w-full max-h-full",
+    props.className
+  );
+  function handleCanPlay() {
+    video.current.play();
+  }
 
   useEffect(() => {
-    if (videoRef.current && srcObject) {
-      videoRef.current.srcObject = srcObject;
+    if (srcObject && video.current) {
+      video.current.srcObject = srcObject;
     }
-  }, [srcObject]);
+  });
 
   return (
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      muted={muted}
-      onCanPlay={() => videoRef.current.play().catch(console.error)}
-      {...props}
-    />
+    <>
+      <video
+        style={style}
+        ref={video}
+        onCanPlay={handleCanPlay}
+        playsInline
+        className={className}
+        autoPlay={true}
+        src={src}
+      />
+    </>
   );
 }
+
+export default VideoTag;
