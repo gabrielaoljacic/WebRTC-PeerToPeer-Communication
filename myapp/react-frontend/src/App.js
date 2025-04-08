@@ -4,6 +4,8 @@ import config from './config';
 import Join from './components/Join';
 import Meeting from './components/Meeting';
 import MeetingEnded from './components/MeetingEnded';
+import './styles/base.css';
+import './styles/join.css';
 import './styles/meeting.css';
 
 // Initializing the SDK
