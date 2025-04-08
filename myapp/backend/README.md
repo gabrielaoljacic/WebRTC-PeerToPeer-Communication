@@ -12,7 +12,7 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 ```
 
-2. Create .env file in /backend with:
+2. Create `.env` file in `/backend` with:
 ```
 METERED_SECRET_KEY=your_api_key
 METERED_DOMAIN=your_domain.metered.live
