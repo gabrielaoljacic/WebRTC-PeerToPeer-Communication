@@ -13,4 +13,4 @@ The application will be available at http://localhost:3000/
 
 This application expects the Flask backend to be running at http://localhost:5000
 
-To change this edit the config.js file.
+To change this edit the `config.js` file.
