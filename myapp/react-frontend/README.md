@@ -2,10 +2,11 @@
 
 This is React front-end of Python+React Video Calling Application.
 
-To start the application run
+To start the application run:
 
-`npm start`
-`npm run start`
+`npm start
+npm run start`
+
 
 The application will be available at http://localhost:3000/
 
