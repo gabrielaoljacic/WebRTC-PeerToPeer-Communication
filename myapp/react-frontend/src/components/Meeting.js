@@ -1,4 +1,5 @@
 import VideoTag from './VideoTag';
+import '../styles/base.css';
 import '../styles/meeting.css';
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaDesktop, FaPhoneSlash } from 'react-icons/fa';
 

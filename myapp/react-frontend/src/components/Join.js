@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import '../styles/base.css';
+import '../styles/join.css';
 
 export default function Join({ handleCreateMeeting, handleJoinMeeting }) {
   const [username, setUsername] = useState('');
