@@ -1,173 +1,192 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import config from './config';
 import Join from './components/Join';
 import Meeting from './components/Meeting';
 import MeetingEnded from './components/MeetingEnded';
 import './styles/meeting.css';
 
-const API_LOCATION = process.env.REACT_APP_API_URL;
+// Initializing the SDK
+const meteredMeeting = new window.Metered.Meeting();
+
+const API_LOCATION = config.api_location;
 
 function App() {
+  // Will set it to true when the user joins the meeting
+  // and update the UI.
   const [meetingJoined, setMeetingJoined] = useState(false);
+  // Storing onlineUsers, updating this when a user joins
+  // or leaves the meeting
   const [onlineUsers, setOnlineUsers] = useState([]);
+
   const [remoteTracks, setRemoteTracks] = useState([]);
-  const [username, setUsername] = useState('');
-  const [roomName, setRoomName] = useState('');
+
+  const [username, setUsername] = useState("");
+
   const [localVideoStream, setLocalVideoStream] = useState(null);
-  const [meetingInfo, setMeetingInfo] = useState(null);
+
+  const [micShared, setMicShared] = useState(false);
+  const [cameraShared, setCameraShared] = useState(false);
+  const [screenShared, setScreenShared] = useState(false);
   const [meetingEnded, setMeetingEnded] = useState(false);
-
-  // Initialize Metered Meeting
+  const [roomName, setRoomName] = useState(null);
+  const [meetingInfo, setMeetingInfo] = useState({});
+  // This useEffect hooks will contain all
+  // event handler, like participantJoined, participantLeft etc.
   useEffect(() => {
-    const meteredMeeting = new window.Metered.Meeting();
-    window.meteredMeeting = meteredMeeting;
+    meteredMeeting.on("remoteTrackStarted", (trackItem) => {
+      remoteTracks.push(trackItem);
+      setRemoteTracks([...remoteTracks]);
+    });
 
-    const handleRemoteTrackStarted = (trackItem) => {
-      setRemoteTracks(prev => [...prev, trackItem]);
-    };
+    meteredMeeting.on("remoteTrackStopped", (trackItem) => {
+      for (let i = 0; i < remoteTracks.length; i++) {
+        if (trackItem.streamId === remoteTracks[i].streamId) {
+          remoteTracks.splice(i, 1);
+        }
+      }
+      setRemoteTracks([...remoteTracks]);
+    });
 
-    const handleRemoteTrackStopped = (trackItem) => {
-      setRemoteTracks(prev => prev.filter(t => t.streamId !== trackItem.streamId));
-    };
+    meteredMeeting.on("participantJoined", (localTrackItem) => {});
 
-    const handleOnlineParticipants = (participants) => {
-      setOnlineUsers(participants);
-    };
+    meteredMeeting.on("participantLeft", (localTrackItem) => {});
 
-    const handleLocalTrackUpdated = (trackItem) => {
-      const stream = new MediaStream([trackItem.track]);
+    meteredMeeting.on("onlineParticipants", (onlineParticipants) => {
+      setOnlineUsers([...onlineParticipants]);
+    });
+
+    meteredMeeting.on("localTrackUpdated", (item) => {
+      const stream = new MediaStream(item.track);
       setLocalVideoStream(stream);
-    };
-
-    meteredMeeting.on("remoteTrackStarted", handleRemoteTrackStarted);
-    meteredMeeting.on("remoteTrackStopped", handleRemoteTrackStopped);
-    meteredMeeting.on("onlineParticipants", handleOnlineParticipants);
-    meteredMeeting.on("localTrackUpdated", handleLocalTrackUpdated);
+    });
 
     return () => {
-      meteredMeeting.removeListener("remoteTrackStarted", handleRemoteTrackStarted);
-      meteredMeeting.removeListener("remoteTrackStopped", handleRemoteTrackStopped);
-      meteredMeeting.removeListener("onlineParticipants", handleOnlineParticipants);
-      meteredMeeting.removeListener("localTrackUpdated", handleLocalTrackUpdated);
-      if (localVideoStream) {
-        localVideoStream.getTracks().forEach(track => track.stop());
-      }
+      meteredMeeting.removeListener("remoteTrackStarted");
+      meteredMeeting.removeListener("remoteTrackStopped");
+      meteredMeeting.removeListener("participantJoined");
+      meteredMeeting.removeListener("participantLeft");
+      meteredMeeting.removeListener("onlineParticipants");
+      meteredMeeting.removeListener("localTrackUpdated");
     };
-  }, [localVideoStream]);
+  });
 
-  const handleCreateMeeting = async (username) => {
-    try {
-      const { data } = await axios.post(`${API_LOCATION}/api/create/room`);
-      const { data: domainData } = await axios.get(`${API_LOCATION}/api/metered-domain`);
-      
-      const joinResponse = await window.meteredMeeting.join({
+  // Will call the API to create a new
+  // room and join the user.
+  async function handleCreateMeeting(username) {
+    // Calling API to create room
+    const { data } = await axios.post(API_LOCATION + "/api/create/room");
+    // Calling API to fetch Metered Domain
+    const response = await axios.get(API_LOCATION + "/api/metered-domain");
+    // Extracting Metered Domain and Room Name
+    // From responses.
+    const METERED_DOMAIN = response.data.METERED_DOMAIN;
+    const roomName = data.roomName;
+
+    // Calling the join() of Metered SDK
+    const joinResponse = await meteredMeeting.join({
+      name: username,
+      roomURL: METERED_DOMAIN + "/" + roomName,
+    });
+
+    setUsername(username);
+    setRoomName(roomName);
+    setMeetingInfo(joinResponse);
+    setMeetingJoined(true);
+  }
+
+  // Will call th API to validate the room
+  // and join the user
+  async function handleJoinMeeting(roomName, username) {
+    roomName = roomName.trim();
+    // Calling API to validate the roomName
+    const response = await axios.get(
+      API_LOCATION + "/api/validate-meeting?roomName=" + roomName
+    );
+
+    if (response.data.roomFound) {
+      // Calling API to fetch Metered Domain
+      const { data } = await axios.get(API_LOCATION + "/api/metered-domain");
+
+      // Extracting Metered Domain and Room Name
+      // From responses.
+      const METERED_DOMAIN = data.METERED_DOMAIN;
+
+      // Calling the join() of Metered SDK
+      const joinResponse = await meteredMeeting.join({
         name: username,
-        roomURL: `${domainData.METERED_DOMAIN}/${data.roomName}`
-      });
-
-      setUsername(username);
-      setRoomName(data.roomName);
-      setMeetingInfo(joinResponse);
-      setMeetingJoined(true);
-    } catch (error) {
-      console.error('Error creating meeting:', error);
-      alert('Failed to create meeting');
-    }
-  };
-
-  const handleJoinMeeting = async (roomName, username) => {
-    try {
-      const { data } = await axios.get(`${API_LOCATION}/api/validate-meeting?roomName=${roomName}`);
-      
-      if (!data.roomFound) {
-        alert('Invalid meeting ID');
-        return;
-      }
-
-      const { data: domainData } = await axios.get(`${API_LOCATION}/api/metered-domain`);
-      const joinResponse = await window.meteredMeeting.join({
-        name: username,
-        roomURL: `${domainData.METERED_DOMAIN}/${roomName}`
+        roomURL: METERED_DOMAIN + "/" + roomName,
       });
 
       setUsername(username);
       setRoomName(roomName);
       setMeetingInfo(joinResponse);
+
       setMeetingJoined(true);
-    } catch (error) {
-      console.error('Error joining meeting:', error);
-      alert('Failed to join meeting');
+    } else {
+      alert("Invalid roomName");
     }
-  };
+  }
 
-  const handleLeaveMeeting = async () => {
-    try {
-      await window.meteredMeeting.leaveMeeting();
-      setMeetingEnded(true);
+  async function handleMicBtn() {
+    if (micShared) {
+      await meteredMeeting.stopAudio();
+      setMicShared(false);
+    } else {
+      await meteredMeeting.startAudio();
+      setMicShared(true);
+    }
+  }
+
+  async function handleCameraBtn() {
+    if (cameraShared) {
+      await meteredMeeting.stopVideo();
       setLocalVideoStream(null);
-      setRemoteTracks([]);
-      setOnlineUsers([]);
-    } catch (error) {
-      console.error('Error leaving meeting:', error);
+      setCameraShared(false);
+    } else {
+      await meteredMeeting.startVideo();
+      var stream = await meteredMeeting.getLocalVideoStream();
+      setLocalVideoStream(stream);
+      setCameraShared(true);
     }
-  };
+  }
 
-  const handleMicBtn = async () => {
-    try {
-      const audioOn = !localVideoStream?.getAudioTracks()[0]?.enabled;
-      if (audioOn) {
-        await window.meteredMeeting.startAudio();
-      } else {
-        await window.meteredMeeting.stopAudio();
-      }
-    } catch (error) {
-      console.error('Error toggling mic:', error);
+  async function handelScreenBtn() {
+    if (!screenShared) {
+      await meteredMeeting.startScreenShare();
+      setScreenShared(false);
+    } else {
+      await meteredMeeting.stopVideo();
+      setCameraShared(false);
+      setScreenShared(true);
     }
-  };
+  }
 
-  const handleCameraBtn = async () => {
-    try {
-      const videoOn = !localVideoStream?.getVideoTracks()[0]?.enabled;
-      if (videoOn) {
-        await window.meteredMeeting.startVideo();
-        const stream = await window.meteredMeeting.getLocalVideoStream();
-        setLocalVideoStream(stream);
-      } else {
-        await window.meteredMeeting.stopVideo();
-      }
-    } catch (error) {
-      console.error('Error toggling camera:', error);
-    }
-  };
-
-  const handleScreenBtn = async () => {
-    try {
-      await window.meteredMeeting.startScreenShare();
-    } catch (error) {
-      console.error('Error starting screen share:', error);
-    }
-  };
+  async function handleLeaveBtn() {
+    await meteredMeeting.leaveMeeting();
+    setMeetingEnded(true);
+  }
 
   return (
     <div className="App">
       {meetingJoined ? (
         meetingEnded ? (
-          <MeetingEnded onRejoin={() => {
-            setMeetingEnded(false);
-            setMeetingJoined(false);
-          }} />
+          <MeetingEnded />
         ) : (
           <Meeting
             handleMicBtn={handleMicBtn}
             handleCameraBtn={handleCameraBtn}
-            handleScreenBtn={handleScreenBtn}
-            handleLeaveBtn={handleLeaveMeeting}
+            handelScreenBtn={handelScreenBtn}
+            handleLeaveBtn={handleLeaveBtn}
             localVideoStream={localVideoStream}
             onlineUsers={onlineUsers}
             remoteTracks={remoteTracks}
             username={username}
             roomName={roomName}
             meetingInfo={meetingInfo}
+            micShared={micShared}
+            cameraShared={cameraShared}
+            screenShared={screenShared}
           />
         )
       ) : (
