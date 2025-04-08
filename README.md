@@ -13,6 +13,7 @@ WebRTC-based video chat application using Python for our Capstone Project in COM
 
 - Python
 - Node.js
+- [Metered API credentials](https://dashboard.metered.ca/signup)
 
 ## Setup
 
