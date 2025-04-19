@@ -6,6 +6,7 @@ Flask backend for the WebRTC video chat application.
 
 1. Install dependencies:
 ```bash
+cd backend
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
