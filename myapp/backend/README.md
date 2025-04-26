@@ -20,6 +20,6 @@ METERED_DOMAIN=your_domain.metered.live
 ```
 
 3. Run the server:
-```
+```bash
 flask run  # if this does not run you may instead try running --> flask --app flaskr run
 ```
